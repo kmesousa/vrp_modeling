@@ -1,6 +1,6 @@
 pandas
 matplotlib
 
-pulp + cbc  4.2.0
+pulp-cbc  4.2.0
 gurobipy 13.3
 ortools
