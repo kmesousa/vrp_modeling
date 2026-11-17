@@ -1,10 +1,10 @@
 '''instancias para cvrp'''
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 from functools import cached_property
-import math
-import random
+import math, random, re
+from pathlib import Path
 
 @dataclass
 class Instance():
@@ -15,8 +15,11 @@ class Instance():
     capacity: float
     k_vehicles: int
     n_clients: int
-    slack: float
+    slack: float | None
     seed: Any
+    rounded: bool = True               # True = convenção TSPLIB/CVRPLIB (EUC_2D)
+
+    #depot_position: Literal["center", "corner", "random"] = "center"
 
     #furture #melhor ser uma class filha!!!
     #capacities: list[float] # for heteregenous fleat
@@ -28,9 +31,11 @@ class Instance():
 
     @cached_property #"atributo" property calculado apenas uma vez, então guardado
     def dist(self):
-        '''Return the (n+1) x (n+1) matrix of Euclidean distances between vertices.'''
-        return [[math.hypot(xi - xj, yi - yj) for (xj, yj) in self.coords]
-            for (xi, yi) in self.coords]
+        '''(n+1) x (n+1) matrix of Euclidean distances between vertices.'''
+        def d(a, b):
+            h = math.hypot(a[0] - b[0], a[1] - b[1])
+            return int(h + 0.5) if self.rounded else h
+        return [[d(a, b) for b in self.coords] for a in self.coords]
 
 def random_instance(n: int, K:int, seed:Any=0, grid:int=100, max_demand:int=10, homogeneous:bool=True, slack:float=1.5):
     '''generate instance for N clients, K vehicles'''
@@ -45,18 +50,87 @@ def random_instance(n: int, K:int, seed:Any=0, grid:int=100, max_demand:int=10, 
     assert(max(demand) <= max_demand)
 
     if homogeneous:
-        while True:
-            capacity = max(math.ceil(slack * sum(demand) / K), max(demand)) #definir capacidade, maximo entre a maior demeanda e a demanda total / frota * slack
+        capacity = max(math.ceil(slack * sum(demand) / K), max(demand)) #definir capacidade, maximo entre a maior demeanda e a demanda total / frota * slack
 
-            if sum(demand) <= capacity*K: #garantir que a instancia seja factível
-                break
+        assert sum(demand) <= capacity*K #garantir que a instancia seja factível
+
     else:
         #capacities = [rng.random(math.ceil((rng.random(1, slack*2)) * sum(demand) / K), max.demand) for _ in range(k)]
         raise NotImplementedError
-
-    #obs: se quiser que todos os veículos sejam usados (exact k), K <= n (fazer essa validação dps)
 
     return Instance(f"rand_n{n}_K{K}_s{seed}", coords, demand, capacity, K, n, slack, seed)
 
 def make(n, K, seed):
     return random_instance(n, K, seed=seed)
+
+
+#         INSTANCIAS DO CVRPLIB
+
+def read_vrplib(path):
+    '''Lê um arquivo .vrp do CVRPLIB e devolve um dict com os dados crus.'''
+    header, coords, demand, depots = {}, {}, {}, []
+    section = None
+
+    for raw in Path(path).read_text().splitlines():
+        line = raw.strip()
+        if not line or line == "EOF":
+            continue
+
+        if line.endswith("_SECTION"):
+            section = line
+            continue
+
+        if section is None:                          # cabeçalho "CHAVE : valor"
+            key, _, val = line.partition(":")
+            header[key.strip()] = val.strip()
+        elif section == "NODE_COORD_SECTION":
+            i, x, y = line.split()[:3]
+            coords[int(i)] = (float(x), float(y))
+        elif section == "DEMAND_SECTION":
+            i, d = line.split()[:2]
+            demand[int(i)] = int(d)
+        elif section == "DEPOT_SECTION":
+            v = int(line.split()[0])
+            if v != -1:
+                depots.append(v)
+
+    return {"header": header, "coords": coords, "demand": demand, "depots": depots}
+
+def from_vrplib(path, rounded=True):
+    '''Cria uma Instance a partir de um arquivo .vrp do CVRPLIB.'''
+    raw = read_vrplib(path)
+    h = raw["header"]
+
+    assert h.get("TYPE") == "CVRP", f"TYPE inesperado: {h.get('TYPE')}"
+    assert h.get("EDGE_WEIGHT_TYPE") == "EUC_2D", "só EUC_2D é suportado"
+    assert raw["depots"] == [1], "esperado um único depósito no nó 1"
+
+    n_nodes = int(h["DIMENSION"])
+    ids = range(1, n_nodes + 1)                      # ids do arquivo começam em 1
+    coords = [raw["coords"][i] for i in ids]         # índice 0 = depósito
+    demand = [raw["demand"][i] for i in ids]
+    assert demand[0] == 0
+
+    name = h["NAME"]
+    capacity = int(h["CAPACITY"])
+
+    # K: primeiro tenta o nome (A-n32-k5), depois o comentário (No of trucks: 5)
+    m = re.search(r"-k(\d+)", name) or re.search(r"trucks:\s*(\d+)", h.get("COMMENT", ""))
+    if m is None:
+        raise ValueError(f"não consegui extrair K de {name!r}")
+    k = int(m.group(1))
+
+    # inverso de: capacity = max(ceil(slack * sum(demand) / K), max(demand))
+    slack = capacity * k / sum(demand)
+
+    return Instance(
+        name=name,
+        coords=coords,
+        demand=demand,
+        capacity=capacity,
+        k_vehicles=k,
+        n_clients=n_nodes - 1,
+        slack=slack,
+        seed=None,
+        rounded=rounded,
+    )

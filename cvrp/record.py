@@ -22,6 +22,11 @@ def to_record (inst:Instance, config: RunConfig, sol:Solution, errors:list[str |
         # --- config: opções do modelo (dinâmico, uma coluna por opção) ---
         **asdict(config.options),
 
+        # --- config: opções de heuristicas ---
+        "heuristic": True if config.heuristic else False,
+        "first_solution": config.heuristic.first_solution if config.heuristic else None,
+        "metaheuristic": config.heuristic.metaheuristic if config.heuristic else None,
+
         # --- resultado do solver ---
         "status": sol.status,
         "obj": sol.obj,                  # None se não houve solução

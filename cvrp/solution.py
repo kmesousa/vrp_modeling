@@ -19,7 +19,7 @@ class Solution:
     bound: float | None = None
 
 
-def arcs_to_routes(arcs):
+def arcs_to_routes(arcs): #             OBS. ASSUME QUE O DEPÓSITO É EM 0,0
     '''converts (x, y) arcs to n1, n2 ... routes '''
     succ, starts = {}, []
     for i, j in arcs:

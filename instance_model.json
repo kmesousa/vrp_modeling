@@ -1,0 +1,26 @@
+{
+    "instance_id": "xxx",
+    "depots":[
+        {
+            "id": 1,
+            "coords": [0, 0],
+            "teams": {}
+        },
+        {
+            "id": 2,
+            "coords": [100, 100],
+            "teams": {}
+        }
+    ],
+    "os": [
+        {
+            "id": 1,
+            "coords": [100, 0],
+            "demand": 0,
+            "release_time": 0,
+            "time_window": []
+        }
+    ],
+    "rechargers": {},
+    "distance_matrix": []
+}

@@ -1,23 +1,5 @@
 from typing import Callable, TypeVar, Any
 
-# from .with_pulp import dfj_3i
-
-# # PULP           4.0.1
-# # GUROBI         13.0.3
-
-# F = TypeVar("F", bound=Callable)
-
-# REGISTRY:dict[str, Any] = {}
-
-# def register(name:str) -> Callable[[F], F]:
-#     '''register vrp models'''
-#     def deco(fn: F) -> F:
-#         REGISTRY[name] = fn
-#         return fn
-#     return deco
-
-# from .with_pulp import mtz_3i
-
 REGISTRY: dict[tuple[str, str], Callable] = {}
 
 # qual backend (pasta/API) cada solver usa
@@ -27,7 +9,6 @@ BACKEND_OF = {
     "gurobipy": "gurobipy",
 }
 
-
 def register(name: str, backend: str):
     def deco(fn):
         REGISTRY[(name, backend)] = fn
@@ -35,7 +16,10 @@ def register(name: str, backend: str):
     return deco
 
 def get_builder(name: str, solver: str) -> Callable:
-    backend = BACKEND_OF[solver]
+    try:
+        backend = BACKEND_OF[solver]
+    except KeyError:
+        raise ValueError(f"solver {solver!r} sem backend; válidos: {list(BACKEND_OF)}") from None
     try:
         return REGISTRY[(name, backend)]
     except KeyError:
@@ -44,10 +28,10 @@ def get_builder(name: str, solver: str) -> Callable:
         ) from None
 
 # IMPORTS NO FINAL: register já existe aqui, e importar o módulo dispara o @register
-import models.with_pulp.mtz_3i  # noqa: F401
-import models.with_pulp.dfj_3i  # noqa: F401
+import exact_methods.with_pulp.mtz_3i  # noqa: F401
+import exact_methods.with_pulp.dfj_3i  # noqa: F401
 try:
-    import models.with_gurobipy.mtz_3i  # noqa: F401
+    import exact_methods.with_gurobipy.mtz_3i  # noqa: F401
 except ModuleNotFoundError as e:
     if e.name != "gurobipy":    # só tolera a falta do gurobipy
         raise

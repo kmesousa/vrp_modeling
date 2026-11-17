@@ -1,8 +1,7 @@
-tsp/
 Instances/
 results/
 plots/
 README.md
 .venv
 .pytest_cache
-cvrp/__pycache__
+__pycache__

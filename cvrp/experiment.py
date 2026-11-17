@@ -1,14 +1,13 @@
 """Executa experimentos (instâncias x configs), grava JSONL e permite recarregar."""
 
-import json
-import time
+import json, time, traceback
 from dataclasses import fields
 from pathlib import Path
 
 from instance import Instance                 # ajuste os imports ao seu pacote
 from solution import Solution, validate
 from solve import solve
-from runConfig import RunConfig, ModelOptions
+from runConfig import RunConfig, ModelOptions, HeuristicOptions
 from record import to_record
 
 SCHEMA = 1
@@ -23,7 +22,7 @@ def _fmt(x, nd=2):
     return "-" if x is None else f"{x:.{nd}f}"
 
 
-def run_experiment(insts, cfgs, path):
+def run_experiment(insts:list[Instance], cfgs:list[RunConfig], path):
     """Roda cada par (instância, config), grava uma linha JSON por execução.
 
     Devolve a lista de trios (inst, cfg, sol).
@@ -40,6 +39,7 @@ def run_experiment(insts, cfgs, path):
                 try:
                     sol, error = solve(inst, cfg), None
                 except Exception as e:          # não pega Ctrl+C
+                    traceback.print_exc()        # <- mostra arquivo e linha do KeyError
                     sol = _failed_solution(cfg, time.perf_counter() - t0)
                     error = f"{type(e).__name__}: {e}"
 
@@ -81,6 +81,10 @@ def _rebuild(d: dict):
     sol = Solution(model=rec["model"], status=rec["status"], obj=rec["obj"],
                    arcs={tuple(a) for a in d["arcs"]}, routes=d["routes"],
                    cost=rec["cost"], time=rec["time"], build_time=rec["build_time"])
+    h = (HeuristicOptions(first_solution=rec["first_solution"], metaheuristic=rec["metaheuristic"])
+        if rec.get("first_solution") else None)
+    cfg = RunConfig(model=rec["model"], options=opts, solver=rec["solver"],
+                    time_limit=rec["time_limit"], heuristic=h)
     return inst, cfg, sol
 
 

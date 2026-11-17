@@ -3,12 +3,13 @@ from pulp import LpProblem, LpMinimize, LpBinary, lpSum       #   PuLP  4.0.1
 from .. import register
 
 from instance import Instance
+from runConfig import ModelOptions
 from collections.abc import Callable
 
 from typing import Literal
 
 @register("mtz_3i", backend="pulp")
-def build(inst: Instance, capacitated=True, subtour=True, exact_k=False, solver:Literal["pulp-cbc","gurobi"]="pulp-cbc") -> tuple[LpProblem, Callable[[], set[tuple]]]:
+def build(inst: Instance, options: ModelOptions) -> tuple[LpProblem, Callable[[], set[tuple]]]:
 
     n, K, Q = inst.n_clients, inst.k_vehicles, inst.capacity
     c, q = inst.dist, inst.demand       #custo das rotas (distancias), demanda dos clientes
@@ -25,16 +26,16 @@ def build(inst: Instance, capacitated=True, subtour=True, exact_k=False, solver:
 
     for k in KS:            #todos veículos usados devem sair do depósito
         saida = lpSum(x[0, j, k] for j in N)
-        prob += (saida == 1) if exact_k else (saida <= 1)
+        prob += (saida == 1) if options.exact_k else (saida <= 1)
 
         for h in V:         #entradas de um veículo em um cliente é igual a saídas
             prob += (lpSum(x[i, h, k] for i in V if i != h)
                      == lpSum(x[h, j, k] for j in V if j != h))
 
-        if capacitated:     #demanda total dos clientes atendidos pelo veículo k deve ser menor ou igual à capacidade Q
+        if options.capacitated:     #demanda total dos clientes atendidos pelo veículo k deve ser menor ou igual à capacidade Q
             prob += lpSum(q[i] * x[i, j, k] for i in N for j in V if j != i) <= Q
 
-    if subtour:             # MTZ: n variáveis de ordem + n(n-1) restrições, em vez de 2^n - n - 1
+    if options.subtour:             # MTZ: n variáveis de ordem + n(n-1) restrições, em vez de 2^n - n - 1
         u = prob.add_variable_dicts("u", list(N), lowBound=1, upBound=n)    #posição do cliente i na sua rota
         for i in N:
             for j in N:
