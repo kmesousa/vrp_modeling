@@ -18,6 +18,7 @@ class Instance():
     slack: float | None
     seed: Any
     rounded: bool = True               # True = convenção TSPLIB/CVRPLIB (EUC_2D)
+    known_best: float | None = None         #otimos encontrados, para instâncias do cvrplib
 
     #depot_position: Literal["center", "corner", "random"] = "center"
 
@@ -46,7 +47,8 @@ def random_instance(n: int, K:int, seed:Any=0, grid:int=100, max_demand:int=10, 
     demand = [0] + [rng.randint(1, max_demand) for _ in range(n)]
 
     assert(len(coords) == len(demand) == n + 1)
-    assert(demand[0] == 0 and coords[0] == (0,0))
+    assert(demand[0] == 0) #depósito não tem demanda
+    assert(coords[0] == (0,0)) #depósito sempre está na posição 0,0    não precisa ser obrigatório, posso fazer opções de instancias com depósito no centro, borda ou aleatório, e usar o assert só quando for no centro ou borda
     assert(max(demand) <= max_demand)
 
     if homogeneous:
@@ -66,7 +68,7 @@ def make(n, K, seed):
 
 #         INSTANCIAS DO CVRPLIB
 
-def read_vrplib(path):
+def read_vrplib(path) -> dict:
     '''Lê um arquivo .vrp do CVRPLIB e devolve um dict com os dados crus.'''
     header, coords, demand, depots = {}, {}, {}, []
     section = None
@@ -96,6 +98,20 @@ def read_vrplib(path):
 
     return {"header": header, "coords": coords, "demand": demand, "depots": depots}
 
+def parse_known_best(header):
+    '''Extrai o valor ótimo/melhor conhecido do COMMENT, ou None se não houver.'''
+    comment = header.get("COMMENT")
+    if not comment:                                   # sem chave ou vazio
+        return None
+
+    try:                                              # COMMENT : 16212.74
+        return float(comment)
+    except ValueError:
+        pass
+
+    m = re.search(r"optimal value:\s*(\d+(?:\.\d+)?)", comment, re.IGNORECASE)
+    return float(m.group(1)) if m else None           # (... Optimal value: 784)
+
 def from_vrplib(path, rounded=True):
     '''Cria uma Instance a partir de um arquivo .vrp do CVRPLIB.'''
     raw = read_vrplib(path)
@@ -123,6 +139,8 @@ def from_vrplib(path, rounded=True):
     # inverso de: capacity = max(ceil(slack * sum(demand) / K), max(demand))
     slack = capacity * k / sum(demand)
 
+    known_best = parse_known_best(header=h)
+
     return Instance(
         name=name,
         coords=coords,
@@ -133,4 +151,9 @@ def from_vrplib(path, rounded=True):
         slack=slack,
         seed=None,
         rounded=rounded,
+        known_best=known_best,
     )
+
+assert(parse_known_best({"COMMENT": "(Augerat et al, No of trucks: 5, Optimal value: 784)"})==784)
+assert(parse_known_best({"COMMENT": "16212.74"})==16212.74)
+assert(parse_known_best({"as": 100})==None)

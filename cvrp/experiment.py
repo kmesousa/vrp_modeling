@@ -4,14 +4,13 @@ import json, time, traceback
 from dataclasses import fields
 from pathlib import Path
 
-from instance import Instance                 # ajuste os imports ao seu pacote
+from instance import Instance
 from solution import Solution, validate
 from solve import solve
 from runConfig import RunConfig, ModelOptions, HeuristicOptions
 from record import to_record
 
 SCHEMA = 1
-
 
 def _failed_solution(config: RunConfig, elapsed: float) -> Solution:
     return Solution(model=config.model, status="erro", obj=None, arcs=set(),
@@ -24,7 +23,6 @@ def _fmt(x, nd=2):
 
 def run_experiment(insts:list[Instance], cfgs:list[RunConfig], path):
     """Roda cada par (instância, config), grava uma linha JSON por execução.
-
     Devolve a lista de trios (inst, cfg, sol).
     """
     path = Path(path)
@@ -64,9 +62,11 @@ def run_experiment(insts:list[Instance], cfgs:list[RunConfig], path):
                 results.append((inst, cfg, sol))
                 print(f"[{done}/{total}] {inst.name} | {cfg.name} | status={sol.status} "
                       f"custo={_fmt(sol.cost)} tempo={_fmt(sol.time, 1)}s"
+                      +(f" kbest={inst.known_best}" if inst.known_best else "")
                       + (f" ERRO={error}" if error else ""), flush=True)
     return results
 
+#                    RECRIAR INSTANCIA A PARTIR DE JSON
 
 def _rebuild(d: dict):
     if d.get("schema") != SCHEMA:

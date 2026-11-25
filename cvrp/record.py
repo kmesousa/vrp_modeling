@@ -8,6 +8,7 @@ def to_record (inst:Instance, config: RunConfig, sol:Solution, errors:list[str |
     return {
         # --- instância ---
         "name": inst.name,
+        "known_best": inst.known_best,
         "n": inst.n_clients,
         "k": inst.k_vehicles,
         "q": inst.capacity,

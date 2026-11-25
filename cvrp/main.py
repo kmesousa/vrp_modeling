@@ -1,18 +1,16 @@
-from instance import make
+from instance import make, from_vrplib, read_vrplib, parse_known_best
 from plot import plot_solution
-from solution import validate
-from solve import solve
-from runConfig import RunConfig
-from record import to_record
+from runConfig import RunConfig, first_solution_opts, metaheuristic_opts
 from experiment import run_experiment, export_readable
 
-from typing import Literal
+from typing import Literal, get_args
 from datetime import datetime
-STAMP = datetime.now().strftime("%Y%m%d_%H%M")
 
+STAMP = datetime.now().strftime("%Y%m%d_%H%M")
 
 SOLVERS = Literal["pulp-cbc","pulp-gurobi", "gurobipy", "ortools-routing"]
 MODELS = Literal["dfj_3i", "mtz_3i", "routing"]
+
 
 VARIANTES = [
     ("com DFJ e capacidade", {}),
@@ -74,13 +72,16 @@ def main ():
         run_experiment([make(7,4,0)], [RunConfig("mtz_3i", solver="pulp-gurobi")], "test_solvers.jsonl" )
         run_experiment([make(7,4,0)], [RunConfig("mtz_3i", solver="gurobipy")], "test_solvers.jsonl" )
 
-    cfg = RunConfig(model="routing", solver="ortools-routing", time_limit=5).with_heuristic(first_solution="SAVINGS", metaheuristic="GUIDED_LOCAL_SEARCH")
-
-    for n in range(10, 11, 10):
-        inst = make(n, int(n/3)+2, 0)
-        run([inst], [cfg], nome_arquivo="ortools_n5_n15")
+    cfg = RunConfig(model="routing", solver="ortools-routing", time_limit=60*5).with_heuristic(first_solution="SAVINGS", metaheuristic="GUIDED_LOCAL_SEARCH")
 
     # run(*mesmo_metodo_varios_tamanhos(5,10,paso=2, solver="gurobipy" ,modelo="mtz_3i", nome_arquivo="gurobipy_n5_n10"))
+
+    cvrplib = ["cvrplib/A-n32-k5.vrp", "cvrplib/A-n80-k10.vrp", "cvrplib/M-n101-k10.vrp"]
+    insts = [from_vrplib(i) for i in cvrplib]
+
+    configs_all_heuristics = [RunConfig(model="routing", solver="ortools-routing", time_limit=30).with_heuristic(first_solution=heu, metaheuristic=metaheu) for heu in get_args(first_solution_opts) for metaheu in get_args(metaheuristic_opts)]
+
+    run(insts, configs_all_heuristics, "teste04_heuristicas_variadas")
 
 if __name__ == "__main__":
     main()

@@ -41,6 +41,12 @@ def solve_routing(inst: Instance, config: RunConfig) -> "Solution":
     manager = pywrapcp.RoutingIndexManager(n, K, 0)
     routing = pywrapcp.RoutingModel(manager)
 
+    if config.heuristic== "SWEEP" and not hasattr(routing, "SetSweepArranger"): #sweep  precisa das coordenadas, modelo só entrega a matrix de distâncias
+            raise NotImplementedError("SWEEP não disponível nesta versão do OR-Tools")
+
+    # if config.heuristic == "SWEEP":
+    #     routing.SetSweepArranger(pywrapcp.SweepArranger([list(c) for c in inst.coords]))
+
     def dist_cb(i, j):
         return scaled[manager.IndexToNode(i)][manager.IndexToNode(j)]
 
@@ -83,7 +89,8 @@ def solve_routing(inst: Instance, config: RunConfig) -> "Solution":
         status = {3: "no_solution", 4: "timeout", 5: "invalid", 6: "infeasible"}.get(
             routing.status(), "failed")
     else:
-        status = STATUS_DICT[routing.status()].lower()
+        #status = STATUS_DICT[routing.status()].lower()
+        status = STATUS_DICT.get(routing.status(), "unknow")
         for v in range(K):
             idx = routing.Start(v)
             nodes = [manager.IndexToNode(idx)]          # [0, ..., 0]

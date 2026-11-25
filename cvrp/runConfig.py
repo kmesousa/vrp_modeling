@@ -3,20 +3,23 @@
 from dataclasses import dataclass, field, fields, replace, MISSING
 from typing import Literal
 
+first_solution_opts = Literal["AUTOMATIC", "CHRISTOFIDES", "SAVINGS", "SWEEP"]
+metaheuristic_opts = Literal["AUTOMATIC", "GREEDY_DESCENT", "GUIDED_LOCAL_SEARCH", "SIMULATED_ANNEALING", "TABU_SEARCH", "GENERIC_TABU_SEARCH"]
+
 @dataclass(frozen=True)
 class ModelOptions:
     """Opções que mudam como o modelo é construído. [Os padrões moram só aqui. ] como assim? """
     objective: Literal["min-sum", "max-min"] = "min-sum"
     capacitated: bool = True
     subtour: bool = True
-    exact_k: bool = False       # confira se bate com o padrão atual do seu build
+    exact_k: bool = False
 
 
 @dataclass(frozen=True)
 class HeuristicOptions:
     '''Opções para solução com heurísitcas'''
-    first_solution: Literal["SAVINGS"] = "SAVINGS"
-    metaheuristic: Literal["GUIDED_LOCAL_SEARCH"] = "GUIDED_LOCAL_SEARCH"
+    first_solution: first_solution_opts = "SAVINGS"
+    metaheuristic: metaheuristic_opts = "GUIDED_LOCAL_SEARCH"
 
 # @dataclass(frozen=True)        # também precisaria q a instancia seja adequada, então não sei se guardaria aqui, a menos q use instancias mais completas, com todas as informações, mesmo que alguns dados fossem ser ignorados
 # class ModelType:
@@ -52,14 +55,17 @@ class RunConfig:
 
     @property
     def name(self) -> str:
-        """Nome legível: só mostra o que foge do padrão."""
+        """Nome legível: só mostra o que foge do padrão em options."""
         mudou = [f"{f.name}={getattr(self.options, f.name)}"
              for f in fields(self.options)
              if getattr(self.options, f.name) != f.default]
         if self.heuristic is not None:
+            # mudou += [f"{f.name}={getattr(self.heuristic, f.name)}"
+            #         for f in fields(self.heuristic)
+            #         if getattr(self.heuristic, f.name) != f.default]
             mudou += [f"{f.name}={getattr(self.heuristic, f.name)}"
-                    for f in fields(self.heuristic)
-                    if getattr(self.heuristic, f.name) != f.default]
+                                for f in fields(self.heuristic)]
+
         return self.model + (" " + ", ".join(mudou) if mudou else "")
 
     def __post_init__(self):
